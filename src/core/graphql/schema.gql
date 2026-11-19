@@ -1,0 +1,41 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input ConnectWabaInput {
+  code: String!
+  connectionType: WabaConnectionType!
+  phoneNumberId: String!
+  wabaId: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Mutation {
+  connectWaba(input: ConnectWabaInput!): WabaIntegration!
+  disconnectWaba(id: ID!): Boolean!
+}
+
+type Query {
+  health: String!
+  wabaIntegrations: [WabaIntegration!]!
+}
+
+enum WabaConnectionType {
+  EMBEDDED_COEXISTENCE
+  EMBEDDED_FRESH
+}
+
+type WabaIntegration {
+  businessName: String!
+  connectionType: WabaConnectionType!
+  createdAt: DateTime!
+  id: ID!
+  isConnected: Boolean!
+  phoneNumber: String!
+  phoneNumberId: String!
+  wabaId: String!
+}
