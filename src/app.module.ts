@@ -26,7 +26,7 @@ import { WabaModule } from './modules/waba/waba.module';
       }: {
         request: FastifyRequest;
         reply: FastifyReply;
-      }) => ({ request, reply }),
+      }) => ({ req: request, request, reply }),
     }),
     DatabaseModule,
     MailModule,

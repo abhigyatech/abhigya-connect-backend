@@ -4,9 +4,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { FastifyRequest } from 'fastify';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -16,7 +16,15 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<FastifyRequest & { user?: any }>();
+    const gqlCtx = GqlExecutionContext.create(context);
+    const gqlReq = gqlCtx.getContext()?.req || gqlCtx.getContext()?.request;
+    const httpReq = context.switchToHttp().getRequest();
+    const request = gqlReq || httpReq;
+
+    if (!request || !request.headers) {
+      throw new UnauthorizedException('Request context unavailable');
+    }
+
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
@@ -31,7 +39,10 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const secret = this.configService.get<string>('JWT_SECRET') || 'abhigya_connect_super_jwt_secret_key_2026';
       const payload = await this.jwtService.verifyAsync(token, { secret });
-      request.user = payload;
+      request.user = {
+        ...payload,
+        id: payload.sub || payload.id,
+      };
       return true;
     } catch {
       throw new UnauthorizedException('Token is invalid or expired');

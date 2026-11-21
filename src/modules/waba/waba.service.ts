@@ -30,6 +30,12 @@ export class WabaService {
         const appId = this.configService.get<string>('META_APP_ID');
         const appSecret = this.configService.get<string>('META_APP_SECRET');
 
+        if (!appId || !appSecret) {
+            throw new BadRequestException(
+                'META_APP_ID and META_APP_SECRET must be configured in backend/.env',
+            );
+        }
+
         const tokenUrl = `${this.graphUrl}/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${input.code}`;
         const tokenRes = await fetch(tokenUrl);
         const tokenData = await tokenRes.json();
@@ -57,31 +63,69 @@ export class WabaService {
             );
         }
 
+        let phoneNumberId = input.phoneNumberId;
+        if (!phoneNumberId) {
+            const phoneListRes = await fetch(
+                `${this.graphUrl}/${input.wabaId}/phone_numbers`,
+                {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                },
+            );
+            if (phoneListRes.ok) {
+                const phoneListData = await phoneListRes.json();
+                if (phoneListData?.data?.length > 0) {
+                    phoneNumberId = phoneListData.data[0].id;
+                }
+            }
+        }
+
+        if (!phoneNumberId) {
+            throw new BadRequestException('No Phone Number ID found for this WABA');
+        }
+
+        if (input.connectionType === 'EMBEDDED_FRESH') {
+            await fetch(`${this.graphUrl}/${phoneNumberId}/register`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    pin: '123456',
+                }),
+            }).catch(() => null);
+        }
+
+        let phoneNumber = '';
+        let businessName = 'WhatsApp Business';
+
         const phoneRes = await fetch(
-            `${this.graphUrl}/${input.phoneNumberId}?fields=display_phone_number,verified_name`,
+            `${this.graphUrl}/${phoneNumberId}?fields=display_phone_number,verified_name`,
             {
                 headers: { Authorization: `Bearer ${accessToken}` },
             },
         );
-        const phoneData = await phoneRes.json();
 
-        if (!phoneRes.ok) {
-            throw new BadRequestException(
-                phoneData?.error?.message || 'Failed to fetch WhatsApp phone details',
-            );
+        if (phoneRes.ok) {
+            const phoneData = await phoneRes.json();
+            phoneNumber = phoneData.display_phone_number || '';
+            businessName = phoneData.verified_name || 'WhatsApp Business';
+        } else {
+            phoneNumber = phoneNumberId;
         }
 
         return this.prisma.wabaIntegration.upsert({
             where: {
                 userId_phoneNumberId: {
                     userId,
-                    phoneNumberId: input.phoneNumberId,
+                    phoneNumberId,
                 },
             },
             update: {
                 wabaId: input.wabaId,
-                phoneNumber: phoneData.display_phone_number || '',
-                businessName: phoneData.verified_name || 'WhatsApp Business',
+                phoneNumber,
+                businessName,
                 accessToken,
                 connectionType: input.connectionType,
                 isConnected: true,
@@ -89,9 +133,9 @@ export class WabaService {
             create: {
                 userId,
                 wabaId: input.wabaId,
-                phoneNumberId: input.phoneNumberId,
-                phoneNumber: phoneData.display_phone_number || '',
-                businessName: phoneData.verified_name || 'WhatsApp Business',
+                phoneNumberId,
+                phoneNumber,
+                businessName,
                 accessToken,
                 connectionType: input.connectionType,
                 isConnected: true,

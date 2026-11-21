@@ -12,23 +12,26 @@ export class WabaResolver {
     constructor(private readonly wabaService: WabaService) { }
 
     @Query(() => [WabaIntegration])
-    async wabaIntegrations(@CurrentUser() user: { id: string }) {
-        return this.wabaService.getAllByUser(user.id);
+    async wabaIntegrations(@CurrentUser() user: { id?: string; sub?: string }) {
+        const userId = user?.id || user?.sub || '';
+        return this.wabaService.getAllByUser(userId);
     }
 
     @Mutation(() => WabaIntegration)
     async connectWaba(
-        @CurrentUser() user: { id: string },
+        @CurrentUser() user: { id?: string; sub?: string },
         @Args('input') input: ConnectWabaInput,
     ) {
-        return this.wabaService.connectEmbeddedSignup(user.id, input);
+        const userId = user?.id || user?.sub || '';
+        return this.wabaService.connectEmbeddedSignup(userId, input);
     }
 
     @Mutation(() => Boolean)
     async disconnectWaba(
-        @CurrentUser() user: { id: string },
+        @CurrentUser() user: { id?: string; sub?: string },
         @Args('id', { type: () => ID }) id: string,
     ) {
-        return this.wabaService.disconnect(user.id, id);
+        const userId = user?.id || user?.sub || '';
+        return this.wabaService.disconnect(userId, id);
     }
 }
